@@ -16,6 +16,8 @@ import { editHandler } from "./board.js"
 import { deleteHandler } from "./board.js"
 
 import { searchMovieHandler } from "./movies.js"
+import { getMovieHandler } from "./movies.js"
+
 
 const app = express()
 const port = 3000
@@ -36,6 +38,7 @@ app.post('/leave', leaveHandler)
 app.get('/me', meHandler) 
 
 app.get('/search/:searchQuery', searchMovieHandler)
+app.get('/movie/:id', getMovieHandler)
 
 app.get('/delete/:id', deleteHandler)
 //post로 변경
