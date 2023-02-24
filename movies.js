@@ -2,6 +2,7 @@ import axios from "axios"
 
 import { getConnection } from "./DB.js"
 import { getMovieID } from "./utils.js"
+import { getLoggedAccount } from "./utils.js"
 
 export async function searchMovieHandler(req, res) {
     let connection = getConnection()
@@ -49,6 +50,7 @@ export async function searchMovieHandler(req, res) {
             let fetchedReleaseDate = response.data.release_date
             let fetchedGenres = genres[0]?.name
             let fetchedCountries = countries[0]?.name
+            let fetchedRuntime = response.data.runtime
 
             if (genres.length > 1) {
                 for (var i = 1; i < genres.length; i++) {
@@ -62,8 +64,8 @@ export async function searchMovieHandler(req, res) {
                 }
             }
 
-            await connection.query("INSERT INTO `movies` (`id`, `title`, `overview`, `poster_path`, `tagline`, `release_date`, `genres`, `country`   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-            , [fetchedID, fetchedTitle, fetchedOverview, fetchedPosterPath, fetchedTagline, fetchedReleaseDate, fetchedGenres, fetchedCountries])
+            await connection.query("INSERT INTO `movies` (`id`, `title`, `overview`, `poster_path`, `tagline`, `release_date`, `genres`, `country`, `runtime`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            , [fetchedID, fetchedTitle, fetchedOverview, fetchedPosterPath, fetchedTagline, fetchedReleaseDate, fetchedGenres, fetchedCountries, fetchedRuntime])
         })
     }
 
@@ -102,10 +104,92 @@ export async function getMovieHandler(req, res) {
     }
 
     let movie = rows[0]
-
-    console.log(movie)
     
     res.send({
         movie: movie
+    })
+}
+
+export async function writeReviewHandler(req, res) {
+    let connection = getConnection()
+    if (connection == null) {
+        res.status(500).send("DB not inited yet")
+        return
+    }
+
+    let account = await getLoggedAccount(req, res)
+    if (account == null) {
+        res.status(400).send("Not logged in")
+        return
+    }
+
+    if (req.body.rating == null || req.body.rating == undefined 
+        || req.body.review == null || req.body.review == undefined
+        || req.body.movie_id == null || req.body.movie_id == undefined) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let fetchedRating = req.body.rating
+    let fetchedReview = req.body.review
+    let fetchedMovieID = req.body.movie_id
+
+    let [rows] = await connection.query("SELECT * FROM `movie_reviews` WHERE `id`=?", [account.id])
+    if (rows.length > 0) {
+        res.status(400).send("Bad request")
+        return
+    }
+  
+    await connection.query("INSERT INTO `movie_reviews` (`movie_id`, `reviewer_id`, `rating`, `review`) values (?, ?, ?, ?)",
+    [fetchedMovieID, account.id, fetchedRating, fetchedReview])
+    
+    res.send({
+        success: true
+    })
+}
+
+export async function getReviewHandler(req, res) {
+    let connection = getConnection()
+    if (connection == null) {
+        res.status(500).send("DB not inited yet")
+        return
+    }
+
+    if (req.params.id == null || req.params.id == undefined) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let fetchedID = req.params.id
+
+    let [rows] = await connection.query("SELECT * FROM `movie_reviews` WHERE `movie_id`=?", [fetchedID])
+    if (rows.length <= 0) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let [count] = await connection.query("SELECT COUNT(*) AS `reviews` FROM `movie_reviews` WHERE `movie_id`=?", [fetchedID])
+
+    let reviews = rows[0]
+    let myReviewID = 0
+
+    if (req.headers["authorization"] != null) {
+        let account = await getLoggedAccount(req, res)
+        if (account == null) {
+            res.status(400).send("Not logged in")
+            return
+        }
+
+        for (var i = 0; i < reviews.length; i++) {   
+            if (reviews[i].reviewer_id == account.id) {
+                myReviewID = reviews[i].id
+            }
+        }
+    }
+    
+    res.send({
+        reviews: reviews,
+        count: count,
+        myReviewID: myReviewID
     })
 }

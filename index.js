@@ -15,7 +15,7 @@ import { writeHandler } from "./board.js"
 import { editHandler } from "./board.js"
 import { deleteHandler } from "./board.js"
 
-import { searchMovieHandler } from "./movies.js"
+import { searchMovieHandler, writeReviewHandler } from "./movies.js"
 import { getMovieHandler } from "./movies.js"
 
 
@@ -39,6 +39,7 @@ app.get('/me', meHandler)
 
 app.get('/search/:searchQuery', searchMovieHandler)
 app.get('/movie/:id', getMovieHandler)
+app.post('/review', writeReviewHandler)
 
 app.get('/delete/:id', deleteHandler)
 //post로 변경

@@ -5,7 +5,6 @@ import { getConnection } from "./DB.js"
 
 export async function getLoggedAccount(req, res) {
     let connection = getConnection()
-
     if (connection == null) {
         res.status(500).send("DB not inited yet")
         return
@@ -13,12 +12,12 @@ export async function getLoggedAccount(req, res) {
 
     let authToken = req.headers["authorization"]
     
-    if (authToken == "" || authToken == undefined) {
+    if (authToken == "" || authToken == undefined || authToken == null) {
         res.status(401).send("Unauthorized")
         return
     }
 
-    let [rows] = await connection.query("SELECT * FROM `members` WHERE `token`=?", [authToken])
+    let [rows] = await connection.query("SELECT * FROM `movie_tokens` WHERE `token`=?", [authToken])
     if (rows.length <= 0) {
         res.status(400).send("Bad request")
         return

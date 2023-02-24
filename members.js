@@ -26,7 +26,7 @@ export async function loginHandler(req, res) {
 
     let token = crypto.createHash("sha256").update(rows[0].user_id + rows[0].user_pw + Math.random(999999).toString()).digest("hex")
 
-    await connection.query("INSERT INTO `movie_token` (`id`, `token`) VALUES (?, ?)", [rows[0].id, token])
+    await connection.query("INSERT INTO `movie_tokens` (`id`, `token`) VALUES (?, ?)", [rows[0].id, token])
 
     res.send({
         token: token
@@ -86,8 +86,6 @@ export async function meHandler(req, res) {
         return
     }
 
-    let [count] = await connection.query("SELECT COUNT(*) AS `writecount` FROM `board` WHERE `user_id`=?", [account.id])
-    let writecount = count[0].writecount
 
     res.send({
         id: account.id,
@@ -96,8 +94,6 @@ export async function meHandler(req, res) {
         gender: account.gender,
         name: account.name,
         registeredDate: account.registered_date,
-
-        count: writecount
     })
 }
 
