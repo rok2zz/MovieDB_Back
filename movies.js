@@ -22,12 +22,29 @@ export async function searchMovieHandler(req, res) {
 
     let [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
     if (rows.length > 0) {
+        let movies = []
+
+        for (var i = 0; i < rows.length; i++) {
+            movies.push({
+                id: rows[i].id,
+                title: rows[i].title,
+                overview: rows[i].overview,
+                posterPath: rows[i].poster_path,
+                tagline: rows[i].tagline,
+                releaseDate: rows[i].release_date,
+                genres: rows[i].genres,
+                country: rows[i].country,
+                runtime: rows[i].runtime
+            })
+        }
+
         res.send({
-            movies: rows
+            movies: movies
         })
 
         return
     }
+
     let movieID = []
     movieID = await getMovieID(fetchedSearchQuery)
 
@@ -78,8 +95,24 @@ export async function searchMovieHandler(req, res) {
         return
     }
 
+    let movies = []
+
+    for (var i = 0; i < rows.length; i++) {
+        movies.push({
+            id: rows[i].id,
+            title: rows[i].title,
+            overview: rows[i].overview,
+            posterPath: rows[i].poster_path,
+            tagline: rows[i].tagline,
+            releaseDate: rows[i].release_date,
+            genres: rows[i].genres,
+            country: rows[i].country,
+            runtime: rows[i].runtime
+        })
+    }
+
     res.send({
-        movies: rows
+        movies: movies
     })
 }
 
@@ -106,7 +139,17 @@ export async function getMovieHandler(req, res) {
     let movie = rows[0]
     
     res.send({
-        movie: movie
+        movie: {
+            id: movie.id,
+            title: movie.title,
+            overview: movie.overview,
+            posterPath: movie.poster_path,
+            tagline: movie.tagline,
+            releaseDate: movie.release_date,
+            genres: movie.genres,
+            country: movie.country,
+            runtime: movie.runtime
+        }
     })
 }
 
@@ -134,9 +177,9 @@ export async function writeReviewHandler(req, res) {
     let fetchedReview = req.body.review
     let fetchedMovieID = req.body.movie_id
 
-    let [rows] = await connection.query("SELECT * FROM `movie_reviews` WHERE `id`=?", [account.id])
+    let [rows] = await connection.query("SELECT * FROM `movie_reviews` WHERE `reviewer_id`=?", [account.id])
     if (rows.length > 0) {
-        res.status(400).send("Bad request")
+        res.status(400).send("이미 작성했습니다.")
         return
     }
   
@@ -162,16 +205,34 @@ export async function getReviewHandler(req, res) {
 
     let fetchedID = req.params.id
 
-    let [rows] = await connection.query("SELECT * FROM `movie_reviews` WHERE `movie_id`=?", [fetchedID])
+    let reviews = []
+    let myID = 0
+
+    let [rows] = await connection.query("SELECT `movie_reviews`.*,`movie_members`.`user_id` FROM `movie_reviews` LEFT JOIN `movie_members` ON `movie_reviews`.`reviewer_id`=`movie_members`.`id` WHERE `movie_id`=?", [fetchedID])
     if (rows.length <= 0) {
-        res.status(400).send("Bad request")
+        res.send({
+            reviews: reviews,
+            count: 0,
+            myID: myID
+        })
+
         return
     }
 
     let [count] = await connection.query("SELECT COUNT(*) AS `reviews` FROM `movie_reviews` WHERE `movie_id`=?", [fetchedID])
+    count = count[0]
 
-    let reviews = rows[0]
-    let myReviewID = 0
+    for (var i = 0; i < rows.length; i++) {
+        reviews.push({
+            id: rows[i].id,
+            movieID: rows[i].movie_id,
+            reviewerID: rows[i].reviewer_id,
+            reviewer: rows[i].user_id,
+            rating: rows[i].rating,
+            review: rows[i].review,
+            writedDate: rows[i].writed_date,
+        })
+    }
 
     if (req.headers["authorization"] != null) {
         let account = await getLoggedAccount(req, res)
@@ -181,15 +242,15 @@ export async function getReviewHandler(req, res) {
         }
 
         for (var i = 0; i < reviews.length; i++) {   
-            if (reviews[i].reviewer_id == account.id) {
-                myReviewID = reviews[i].id
+            if (reviews[i].reviewerID == account.id) {
+                myID = reviews[i].id
             }
         }
     }
-    
+
     res.send({
         reviews: reviews,
-        count: count,
-        myReviewID: myReviewID
+        count: count.reviews,
+        myID: myID
     })
 }
