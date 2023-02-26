@@ -177,7 +177,7 @@ export async function writeReviewHandler(req, res) {
     let fetchedReview = req.body.review
     let fetchedMovieID = req.body.movie_id
 
-    let [rows] = await connection.query("SELECT * FROM `movie_reviews` WHERE `reviewer_id`=?", [account.id])
+    let [rows] = await connection.query("SELECT * FROM `movie_reviews` WHERE `reviewer_id`=? AND `movie_id`=?", [account.id, fetchedMovieID])
     if (rows.length > 0) {
         res.status(400).send("이미 작성했습니다.")
         return
@@ -198,29 +198,124 @@ export async function getReviewHandler(req, res) {
         return
     }
 
-    if (req.params.id == null || req.params.id == undefined) {
+    if (req.params.id == null || req.params.id == undefined 
+        || req.params.page == null || req.params.page == undefined) {
         res.status(400).send("Bad request")
         return
     }
 
     let fetchedID = req.params.id
 
-    let reviews = []
-    let myReviewID = 0
+    let fetchedPage = Number(req.params.page)
+    if (isNaN(fetchedPage) || fetchedPage < 0) {
+        res.status(400).send("Bad request")
+        return
+    }
 
-    let [rows] = await connection.query("SELECT `movie_reviews`.*,`movie_members`.`user_id` FROM `movie_reviews` LEFT JOIN `movie_members` ON `movie_reviews`.`reviewer_id`=`movie_members`.`id` WHERE `movie_id`=?", [fetchedID])
-    if (rows.length <= 0) {
+    let reviews = []
+
+    let [count] = await connection.query("SELECT COUNT(*) AS `reviews` FROM `movie_reviews` WHERE `movie_id`=?", [fetchedID])
+    count = count[0]
+
+    if (req.headers["authorization"] != null) {
+        let account = await getLoggedAccount(req, res)
+        if (account == null) {
+            res.status(400).send("Not logged in")
+            return
+        }
+
+        let [myReview] = await connection.query("SELECT`movie_reviews`.*,`movie_members`.`user_id` FROM `movie_reviews` LEFT JOIN `movie_members` ON `movie_reviews`.`reviewer_id`=`movie_members`.`id` WHERE `movie_id`=? AND `reviewer_id`=? LIMIT ?,?", [fetchedID, account.id, fetchedPage * 5, 5])
+        // 로그인o 내 리뷰o
+        if (myReview.length > 0) {
+            myReview = myReview[0]
+
+            let [rows] = await connection.query("SELECT `movie_reviews`.*,`movie_members`.`user_id` FROM `movie_reviews` LEFT JOIN `movie_members` ON `movie_reviews`.`reviewer_id`=`movie_members`.`id` WHERE `movie_id`=? AND NOT `reviewer_id`=? LIMIT ?,?", [fetchedID, myReview.reviewer_id, fetchedPage * 5, 5])
+            if (rows.length <= 0) {
+                res.send({
+                    reviews: reviews,
+                    count: count.reviews,
+                    myReview: {
+                        id: myReview.id,
+                        movieID: myReview.movie_id,
+                        reviewerID: myReview.reviewer_id,
+                        reviewer: myReview.user_id,
+                        rating: myReview.rating,
+                        review: myReview.review,
+                        writedDate: myReview.writed_date,
+                    }
+                })
+        
+                return
+            } 
+            
+            for (var i = 0; i < rows.length; i++) {
+                reviews.push({
+                    id: rows[i].id,
+                    movieID: rows[i].movie_id,
+                    reviewerID: rows[i].reviewer_id,
+                    reviewer: rows[i].user_id,
+                    rating: rows[i].rating,
+                    review: rows[i].review,
+                    writedDate: rows[i].writed_date,
+                })
+            }
+
+            res.send({
+                reviews: reviews,
+                count: count.reviews,
+                myReview: {
+                    id: myReview.id,
+                    movieID: myReview.movie_id,
+                    reviewerID: myReview.reviewer_id,
+                    reviewer: myReview.user_id,
+                    rating: myReview.rating,
+                    review: myReview.review,
+                    writedDate: myReview.writed_date,
+                }
+            })
+
+            return
+        } 
+
+        // 로그인o 내 리뷰x
+        let [rows] = await connection.query("SELECT `movie_reviews`.*,`movie_members`.`user_id` FROM `movie_reviews` LEFT JOIN `movie_members` ON `movie_reviews`.`reviewer_id`=`movie_members`.`id` WHERE `movie_id`=? LIMIT ?,?", [fetchedID, fetchedPage * 5, 5])
+        if (rows.length <= 0) {
+            res.send({
+                response: "reviews not exist"
+            })
+    
+            return
+        } 
+
+        for (var i = 0; i < rows.length; i++) {
+            reviews.push({
+                id: rows[i].id,
+                movieID: rows[i].movie_id,
+                reviewerID: rows[i].reviewer_id,
+                reviewer: rows[i].user_id,
+                rating: rows[i].rating,
+                review: rows[i].review,
+                writedDate: rows[i].writed_date,
+            })
+        }
+
         res.send({
             reviews: reviews,
-            count: 0,
-            myReviewID: myReviewID
+            count: count.reviews
         })
 
         return
     }
 
-    let [count] = await connection.query("SELECT COUNT(*) AS `reviews` FROM `movie_reviews` WHERE `movie_id`=?", [fetchedID])
-    count = count[0]
+    // 로그인x
+    let [rows] = await connection.query("SELECT `movie_reviews`.*,`movie_members`.`user_id` FROM `movie_reviews` LEFT JOIN `movie_members` ON `movie_reviews`.`reviewer_id`=`movie_members`.`id` WHERE `movie_id`=? LIMIT ?,?", [fetchedID, fetchedPage * 5, 5])
+    if (rows.length <= 0) {
+        res.send({
+            response: "reviews not exist"
+        })
+
+        return
+    }    
 
     for (var i = 0; i < rows.length; i++) {
         reviews.push({
@@ -234,24 +329,9 @@ export async function getReviewHandler(req, res) {
         })
     }
 
-    if (req.headers["authorization"] != null) {
-        let account = await getLoggedAccount(req, res)
-        if (account == null) {
-            res.status(400).send("Not logged in")
-            return
-        }
-
-        for (var i = 0; i < reviews.length; i++) {   
-            if (reviews[i].reviewerID == account.id) {
-                myReviewID = reviews[i].id
-            }
-        }
-    }
-
     res.send({
         reviews: reviews,
-        count: count.reviews,
-        myReviewID: myReviewID
+        count: count.reviews
     })
 }
 

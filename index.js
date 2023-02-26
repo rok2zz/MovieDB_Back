@@ -39,7 +39,7 @@ app.get('/me', meHandler)
 
 app.get('/search/:searchQuery', searchMovieHandler)
 app.get('/movie/:id', getMovieHandler)
-app.get('/review/:id', getReviewHandler)
+app.get('/review/:id/:page', getReviewHandler)
 app.post('/review/write', writeReviewHandler)
 app.post('/review/delete', deleteReviewHandler)
 
