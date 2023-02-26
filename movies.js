@@ -206,14 +206,14 @@ export async function getReviewHandler(req, res) {
     let fetchedID = req.params.id
 
     let reviews = []
-    let myID = 0
+    let myReviewID = 0
 
     let [rows] = await connection.query("SELECT `movie_reviews`.*,`movie_members`.`user_id` FROM `movie_reviews` LEFT JOIN `movie_members` ON `movie_reviews`.`reviewer_id`=`movie_members`.`id` WHERE `movie_id`=?", [fetchedID])
     if (rows.length <= 0) {
         res.send({
             reviews: reviews,
             count: 0,
-            myID: myID
+            myReviewID: myReviewID
         })
 
         return
@@ -243,7 +243,7 @@ export async function getReviewHandler(req, res) {
 
         for (var i = 0; i < reviews.length; i++) {   
             if (reviews[i].reviewerID == account.id) {
-                myID = reviews[i].id
+                myReviewID = reviews[i].id
             }
         }
     }
@@ -251,6 +251,33 @@ export async function getReviewHandler(req, res) {
     res.send({
         reviews: reviews,
         count: count.reviews,
-        myID: myID
+        myReviewID: myReviewID
+    })
+}
+
+export async function deleteReviewHandler(req, res) {
+    let connection = getConnection()
+    if (connection == null) {
+        res.status(500).send("DB not inited yet")
+        return
+    }
+
+    let account = await getLoggedAccount(req, res)
+    if (account == null) {
+        res.status(400).send("Not logged in")
+        return
+    }
+
+    if (req.body.myReviewID == null || req.body.myReviewID == undefined) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let fetchedMyReviewID = req.body.myReviewID
+
+    await connection.query("DELETE FROM `movie_reviews` WHERE `id`=?", [fetchedMyReviewID])
+
+    res.send({
+        success: true
     })
 }
