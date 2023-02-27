@@ -53,10 +53,7 @@ export async function getMovieID(searchQuery) {
             data = data.split('?language=ko-KR"><h2>')[0]
 
             movieID[i - 1] = data.toString()
-
-
         }
-
     })
 
     return movieID

@@ -15,7 +15,7 @@ import { writeHandler } from "./board.js"
 import { editHandler } from "./board.js"
 import { deleteHandler } from "./board.js"
 
-import { deleteReviewHandler, getReviewHandler, searchMovieHandler, writeReviewHandler } from "./movies.js"
+import { deleteReviewHandler, getMainHandler, getMoreMoviesHandler, getRandomMovieHandler, getReviewHandler, reSearchMovieHandler, searchMovieHandler, writeReviewHandler } from "./movies.js"
 import { getMovieHandler } from "./movies.js"
 
 
@@ -37,8 +37,12 @@ app.post('/register', registerHandler)
 app.post('/leave', leaveHandler)
 app.get('/me', meHandler) 
 
+app.get('/main', getMainHandler)
+app.get('/mainitems/:type/:page', getMoreMoviesHandler)
 app.get('/search/:searchQuery', searchMovieHandler)
+app.get('/search/re/:searchQuery', reSearchMovieHandler)
 app.get('/movie/:id', getMovieHandler)
+app.get('/random', getRandomMovieHandler)
 app.get('/review/:id/:page', getReviewHandler)
 app.post('/review/write', writeReviewHandler)
 app.post('/review/delete', deleteReviewHandler)

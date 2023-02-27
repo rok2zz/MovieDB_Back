@@ -4,6 +4,167 @@ import { getConnection } from "./DB.js"
 import { getMovieID } from "./utils.js"
 import { getLoggedAccount } from "./utils.js"
 
+export async function getMainHandler(req, res) {
+    let connection = getConnection()
+    if (connection == null) {
+        res.status(500).send("DB not inited yet")
+        return
+    }
+
+    let [rows] = await connection.query("SELECT `movies`.*,count(*) FROM `movie_reviews` LEFT JOIN `movies` ON `movie_reviews`.`movie_id`=`movies`.`id` GROUP BY `movie_reviews`.`movie_id` ORDER BY `count(*)` DESC LIMIT 0,4")
+    if (rows.length <= 0) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let byReviews = []
+
+    for (var i = 0; i < rows.length; i++) {
+        byReviews.push({
+            id: rows[i].id,
+            title: rows[i].title,
+            overview: rows[i].overview,
+            posterPath: rows[i].poster_path,
+            tagline: rows[i].tagline,
+            releaseDate: rows[i].release_date,
+            genres: rows[i].genres,
+            country: rows[i].country,
+            runtime: rows[i].runtime
+        })
+    }
+
+    let today = new Date(); 
+
+    if (today == undefined) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    [rows] = await connection.query("SELECT * FROM `movies` WHERE `release_date`<? ORDER BY `release_date` DESC LIMIT 0,4", [today])
+    if (rows.length <= 0) {
+        res.status(400).send("Bad request")
+        return
+    }
+    
+    let byNewest = []
+
+    for (var i = 0; i < rows.length; i++) {
+        byNewest.push({
+            id: rows[i].id,
+            title: rows[i].title,
+            overview: rows[i].overview,
+            posterPath: rows[i].poster_path,
+            tagline: rows[i].tagline,
+            releaseDate: rows[i].release_date,
+            genres: rows[i].genres,
+            country: rows[i].country,
+            runtime: rows[i].runtime
+        })
+    }
+
+
+    res.send({
+        byReviews: byReviews,
+        byNewest: byNewest
+    })
+}
+
+export async function getMoreMoviesHandler(req, res) {
+    let connection = getConnection()
+    if (connection == null) {
+        res.status(500).send("DB not inited yet")
+        return
+    }
+
+    if (req.params.type == null || req.params.type == undefined 
+        || req.params.page == null || req.params.page == undefined) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let fetchedType = req.params.type
+    let page = req.params.page
+
+    if (fetchedType == "byReviews") {
+        let [rows] = await connection.query("SELECT `movies`.*,count(*) FROM `movie_reviews` LEFT JOIN `movies` ON `movie_reviews`.`movie_id`=`movies`.`id` GROUP BY `movie_reviews`.`movie_id` ORDER BY `count(*)` DESC LIMIT ?,?", [page * 8, 8])
+        if (rows.length <= 0) {
+            res.status(400).send("Bad request")
+            return
+        }
+
+        let [count] = await connection.query("SELECT count(*) FROM `movie_reviews` GROUP BY `movie_id`")
+        count = count.length
+        if (count <= 0) {
+            res.status(400).send("Bad request")
+            return
+        }
+
+        let byReviews = []
+
+        for (var i = 0; i < rows.length; i++) {
+            byReviews.push({
+                id: rows[i].id,
+                title: rows[i].title,
+                overview: rows[i].overview,
+                posterPath: rows[i].poster_path,
+                tagline: rows[i].tagline,
+                releaseDate: rows[i].release_date,
+                genres: rows[i].genres,
+                country: rows[i].country,
+                runtime: rows[i].runtime
+            })
+        }
+
+        res.send({
+            byReviews: byReviews,
+            count: count
+        })
+
+        return
+    }
+
+    let today = new Date(); 
+
+    if (today == undefined) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let [count] = await connection.query("SELECT count(*) AS `newest` FROM `movies`")
+    count = count[0].newest
+    if (count <= 0) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let [rows] = await connection.query("SELECT * FROM `movies` WHERE `release_date`<? ORDER BY `release_date` DESC LIMIT ?,?", [today, page * 8, 8])
+    if (rows.length <= 0) {
+        res.status(400).send("Bad request")
+        return
+    }
+    
+    let byNewest = []
+
+    for (var i = 0; i < rows.length; i++) {
+        byNewest.push({
+            id: rows[i].id,
+            title: rows[i].title,
+            overview: rows[i].overview,
+            posterPath: rows[i].poster_path,
+            tagline: rows[i].tagline,
+            releaseDate: rows[i].release_date,
+            genres: rows[i].genres,
+            country: rows[i].country,
+            runtime: rows[i].runtime
+        })
+    }
+
+    res.send({
+        byNewest: byNewest,
+        count: count
+    })
+}
+
 export async function searchMovieHandler(req, res) {
     let connection = getConnection()
     if (connection == null) {
@@ -116,6 +277,133 @@ export async function searchMovieHandler(req, res) {
     })
 }
 
+export async function reSearchMovieHandler(req, res) {
+    let connection = getConnection()
+    if (connection == null) {
+        res.status(500).send("DB not inited yet")
+        return
+    }
+
+    if (req.params.searchQuery == null || req.params.searchQuery == undefined) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let fetchedSearchQuery = req.params.searchQuery
+
+    let searchTitle = "%" + fetchedSearchQuery + "%"
+    let existMovieIDs = []
+
+    let [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
+    if (rows.length > 0) {
+
+        for (var i = 0; i < rows.length; i++) {
+            existMovieIDs.push({
+                id: rows[i].id
+            })
+        }
+    }   
+
+    let movieID = []
+    movieID = await getMovieID(fetchedSearchQuery)
+
+    for (var i = 0; i < movieID.length; i++) {
+        for (var j = 0; j < existMovieIDs.length; j++) {
+            if (existMovieIDs[j]?.id == movieID[i]) {
+                i++
+                j = 0
+            } 
+        }
+
+        await axios.get("https://api.themoviedb.org/3/movie/" + movieID[i] + "?api_key=423e4d97afab4ad57572edc030b2f998&language=ko-KR", {
+            headers: {
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.76"
+            }
+        }).catch(function() {
+            alert("error")
+        }).then(async (response) => {
+            let genres = response.data.genres
+            let countries = response.data.production_countries
+
+            let fetchedID = response.data.id
+            let fetchedTitle = response.data.title
+            let fetchedOverview = response.data.overview
+            let fetchedPosterPath = response.data.poster_path
+            let fetchedTagline = response.data.tagline
+            let fetchedReleaseDate = response.data.release_date
+            let fetchedGenres = genres[0]?.name
+            let fetchedCountries = countries[0]?.name
+            let fetchedRuntime = response.data.runtime
+
+            if (genres.length > 1) {
+                for (var i = 1; i < genres.length; i++) {
+                    fetchedGenres = fetchedGenres + ", " + genres[i].name
+                }
+            }
+            
+            if (countries.length > 1) {
+                for (var i = 1; i < countries.length; i++) {
+                    fetchedCountries = fetchedCountries + ", " + countries[i].name
+                }
+            }
+
+            await connection.query("INSERT INTO `movies` (`id`, `title`, `overview`, `poster_path`, `tagline`, `release_date`, `genres`, `country`, `runtime`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            , [fetchedID, fetchedTitle, fetchedOverview, fetchedPosterPath, fetchedTagline, fetchedReleaseDate, fetchedGenres, fetchedCountries, fetchedRuntime])
+        
+        })
+    }
+
+    [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
+    if (rows.length <= 0) {
+        res.send({
+            search: "none"
+        })
+
+        return
+    }
+
+    let movies = []
+
+    for (var i = 0; i < rows.length; i++) {
+        movies.push({
+            id: rows[i].id,
+            title: rows[i].title,
+            overview: rows[i].overview,
+            posterPath: rows[i].poster_path,
+            tagline: rows[i].tagline,
+            releaseDate: rows[i].release_date,
+            genres: rows[i].genres,
+            country: rows[i].country,
+            runtime: rows[i].runtime
+        })
+    }
+
+    res.send({
+        movies: movies
+    })
+}
+
+export async function getRandomMovieHandler(req, res) {
+    let connection = getConnection()
+    if (connection == null) {
+        res.status(500).send("DB not inited yet")
+        return
+    }
+
+    let [rows] = await connection.query("SELECT `id` FROM `movies` ORDER BY RAND() LIMIT 1")
+    if (rows.length <= 0) {
+        res.status(400).send("Bad request")
+        return
+    }
+
+    let movie = rows[0]
+    
+    console.log(movie)
+    res.send({
+        movieID: movie.id
+    })
+}
+
 export async function getMovieHandler(req, res) {
     let connection = getConnection()
     if (connection == null) {
@@ -215,7 +503,17 @@ export async function getReviewHandler(req, res) {
     let reviews = []
 
     let [count] = await connection.query("SELECT COUNT(*) AS `reviews` FROM `movie_reviews` WHERE `movie_id`=?", [fetchedID])
+    
     count = count[0]
+
+    if (count.reviews <= 0) {
+        res.send({
+            response: "reviews are not exist",
+            count: 0
+        })
+
+        return
+    }
 
     if (req.headers["authorization"] != null) {
         let account = await getLoggedAccount(req, res)
@@ -281,7 +579,7 @@ export async function getReviewHandler(req, res) {
         let [rows] = await connection.query("SELECT `movie_reviews`.*,`movie_members`.`user_id` FROM `movie_reviews` LEFT JOIN `movie_members` ON `movie_reviews`.`reviewer_id`=`movie_members`.`id` WHERE `movie_id`=? LIMIT ?,?", [fetchedID, fetchedPage * 5, 5])
         if (rows.length <= 0) {
             res.send({
-                response: "reviews not exist"
+                response: "reviews are not exist"
             })
     
             return
