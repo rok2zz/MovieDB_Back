@@ -181,10 +181,10 @@ export async function searchMovieHandler(req, res) {
 
     let searchTitle = "%" + fetchedSearchQuery + "%"
 
+    let movies = []
+
     let [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
     if (rows.length > 0) {
-        let movies = []
-
         for (var i = 0; i < rows.length; i++) {
             movies.push({
                 id: rows[i].id,
@@ -210,12 +210,33 @@ export async function searchMovieHandler(req, res) {
     movieID = await getMovieID(fetchedSearchQuery)
 
     for (var i = 0; i < movieID.length; i++) {
+        for (var j = i; j < movieID.length; j++) {
+            let [row] = await connection.query("SELECT * FROM `movies` WHERE `id`=?", [movieID[i]])
+            if (row.length > 0) {
+                movies.push({
+                    id: row[0].id,
+                    title: row[0].title,
+                    overview: row[0].overview,
+                    posterPath: row[0].poster_path,
+                    tagline: row[0].tagline,
+                    releaseDate: row[0].release_date,
+                    genres: row[0].genres,
+                    country: row[0].country,
+                    runtime: row[0].runtime
+                })
+
+                i++
+            }
+        }   
+
+        if (i >= movieID.length) break
+
         await axios.get("https://api.themoviedb.org/3/movie/" + movieID[i] + "?api_key=423e4d97afab4ad57572edc030b2f998&language=ko-KR", {
             headers: {
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.76"
             }
         }).catch(function() {
-            alert("error")
+            console.log("error")
         }).then(async (response) => {
             let genres = response.data.genres
             let countries = response.data.production_countries
@@ -249,14 +270,21 @@ export async function searchMovieHandler(req, res) {
 
     [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
     if (rows.length <= 0) {
+        if (movies.length > 0) {
+            res.send({
+                movies: movies
+            })
+
+            return
+        }
+
         res.send({
-            search: "none"
+            search: "none",
+            movies: movies
         })
 
         return
     }
-
-    let movies = []
 
     for (var i = 0; i < rows.length; i++) {
         movies.push({
@@ -292,35 +320,40 @@ export async function reSearchMovieHandler(req, res) {
     let fetchedSearchQuery = req.params.searchQuery
 
     let searchTitle = "%" + fetchedSearchQuery + "%"
-    let existMovieIDs = []
 
-    let [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
-    if (rows.length > 0) {
-
-        for (var i = 0; i < rows.length; i++) {
-            existMovieIDs.push({
-                id: rows[i].id
-            })
-        }
-    }   
+    let movies = []
 
     let movieID = []
     movieID = await getMovieID(fetchedSearchQuery)
 
     for (var i = 0; i < movieID.length; i++) {
-        for (var j = 0; j < existMovieIDs.length; j++) {
-            if (existMovieIDs[j]?.id == movieID[i]) {
+        for (var j = i; j < movieID.length; j++) {
+            let [row] = await connection.query("SELECT * FROM `movies` WHERE `id`=?", [movieID[i]])
+            if (row.length > 0) {
+                movies.push({
+                    id: row[0].id,
+                    title: row[0].title,
+                    overview: row[0].overview,
+                    posterPath: row[0].poster_path,
+                    tagline: row[0].tagline,
+                    releaseDate: row[0].release_date,
+                    genres: row[0].genres,
+                    country: row[0].country,
+                    runtime: row[0].runtime
+                })
+
                 i++
-                j = 0
-            } 
-        }
+            }
+        }   
+        
+        if (i >= movieID.length) break
 
         await axios.get("https://api.themoviedb.org/3/movie/" + movieID[i] + "?api_key=423e4d97afab4ad57572edc030b2f998&language=ko-KR", {
             headers: {
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.76"
             }
         }).catch(function() {
-            alert("error")
+            console.log("error")
         }).then(async (response) => {
             let genres = response.data.genres
             let countries = response.data.production_countries
@@ -353,18 +386,37 @@ export async function reSearchMovieHandler(req, res) {
         })
     }
 
-    [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
+    let [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
     if (rows.length <= 0) {
+        if (movies.length > 0) {
+            res.send({
+                movies: movies
+            })
+
+            return
+        }
+
         res.send({
-            search: "none"
+            search: "none",
+            movies: movies
         })
 
         return
     }
 
-    let movies = []
 
     for (var i = 0; i < rows.length; i++) {
+        for (var j = 0; j < movies.length; j++) {
+            if (rows[i].id == movies[j].id) {
+                j = -1
+                i++
+            }
+            
+            if (i >= rows.length) break
+        }
+
+        if (i >= (rows.length - 1)) break
+
         movies.push({
             id: rows[i].id,
             title: rows[i].title,
@@ -398,7 +450,6 @@ export async function getRandomMovieHandler(req, res) {
 
     let movie = rows[0]
     
-    console.log(movie)
     res.send({
         movieID: movie.id
     })
