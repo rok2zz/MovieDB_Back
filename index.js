@@ -4,20 +4,10 @@ import dotenv from "dotenv"
 
 import { getConnection, myapp } from "./DB.js"
 
-import { registerHandler } from "./members.js"
-import { loginHandler } from "./members.js"
-import { meHandler } from "./members.js"
-import { leaveHandler } from "./members.js"
+import { registerHandler, loginHandler } from "./members.js"
 
-import { boardHandler } from "./board.js"
-import { contentsHandler } from "./board.js"
-import { writeHandler } from "./board.js"
-import { editHandler } from "./board.js"
-import { deleteHandler } from "./board.js"
-
-import { deleteReviewHandler, getMainHandler, getMoreMoviesHandler, getRandomMovieHandler, getReviewHandler, reSearchMovieHandler, searchMovieHandler, writeReviewHandler } from "./movies.js"
-import { getMovieHandler } from "./movies.js"
-
+import { getMovieHandler, deleteReviewHandler, getMainHandler, getMoreMoviesHandler
+    , getRandomMovieHandler, getReviewHandler, reSearchMovieHandler, searchMovieHandler, writeReviewHandler } from "./movies.js"
 
 const app = express()
 const port = 3000
@@ -34,25 +24,19 @@ connection = getConnection
 
 app.post('/login', loginHandler)
 app.post('/register', registerHandler)
-app.post('/leave', leaveHandler)
-app.get('/me', meHandler) 
 
 app.get('/main', getMainHandler)
 app.get('/mainitems/:type/:page', getMoreMoviesHandler)
+
 app.get('/search/:searchQuery', searchMovieHandler)
 app.get('/search/re/:searchQuery', reSearchMovieHandler)
+
 app.get('/movie/:id', getMovieHandler)
 app.get('/random', getRandomMovieHandler)
+
 app.get('/review/:id/:page', getReviewHandler)
 app.post('/review/write', writeReviewHandler)
 app.post('/review/delete', deleteReviewHandler)
-
-app.get('/delete/:id', deleteHandler)
-//post로 변경
-app.post('/write', writeHandler)
-app.post('/edit', editHandler)
-app.get('/board', boardHandler)
-app.get('/contents/:id', contentsHandler)
 
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)

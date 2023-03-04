@@ -19,6 +19,7 @@ export async function getMainHandler(req, res) {
 
     let byReviews = []
 
+    // 리뷰 많은 순
     for (var i = 0; i < rows.length; i++) {
         byReviews.push({
             id: rows[i].id,
@@ -48,6 +49,7 @@ export async function getMainHandler(req, res) {
     
     let byNewest = []
 
+    // 최근 나온 순
     for (var i = 0; i < rows.length; i++) {
         byNewest.push({
             id: rows[i].id,
@@ -61,7 +63,6 @@ export async function getMainHandler(req, res) {
             runtime: rows[i].runtime
         })
     }
-
 
     res.send({
         byReviews: byReviews,
@@ -85,6 +86,7 @@ export async function getMoreMoviesHandler(req, res) {
     let fetchedType = req.params.type
     let page = req.params.page
 
+    // 리뷰 많은 순
     if (fetchedType == "byReviews") {
         let [rows] = await connection.query("SELECT `movies`.*,count(*) FROM `movie_reviews` LEFT JOIN `movies` ON `movie_reviews`.`movie_id`=`movies`.`id` GROUP BY `movie_reviews`.`movie_id` ORDER BY `count(*)` DESC LIMIT ?,?", [page * 8, 8])
         if (rows.length <= 0) {
@@ -123,6 +125,7 @@ export async function getMoreMoviesHandler(req, res) {
         return
     }
 
+    // 츼근 나온 순
     let today = new Date(); 
 
     if (today == undefined) {
@@ -183,6 +186,7 @@ export async function searchMovieHandler(req, res) {
 
     let movies = []
 
+    // DB에 검색결과 존재
     let [rows] = await connection.query("SELECT * FROM `movies` WHERE `title` LIKE ?", [searchTitle])
     if (rows.length > 0) {
         for (var i = 0; i < rows.length; i++) {
@@ -209,6 +213,7 @@ export async function searchMovieHandler(req, res) {
     let movieID = []
     movieID = await getMovieID(fetchedSearchQuery)
 
+    // DB에 검색결과 존재x => api 호출 후 DB에 저장
     for (var i = 0; i < movieID.length; i++) {
         for (var j = i; j < movieID.length; j++) {
             let [row] = await connection.query("SELECT * FROM `movies` WHERE `id`=?", [movieID[i]])
@@ -327,6 +332,7 @@ export async function reSearchMovieHandler(req, res) {
     movieID = await getMovieID(fetchedSearchQuery)
 
     for (var i = 0; i < movieID.length; i++) {
+        // 이미 DB에 있는 검색결과를 제외한 movieID로 api 호출
         for (var j = i; j < movieID.length; j++) {
             let [row] = await connection.query("SELECT * FROM `movies` WHERE `id`=?", [movieID[i]])
             if (row.length > 0) {
@@ -382,7 +388,6 @@ export async function reSearchMovieHandler(req, res) {
 
             await connection.query("INSERT INTO `movies` (`id`, `title`, `overview`, `poster_path`, `tagline`, `release_date`, `genres`, `country`, `runtime`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
             , [fetchedID, fetchedTitle, fetchedOverview, fetchedPosterPath, fetchedTagline, fetchedReleaseDate, fetchedGenres, fetchedCountries, fetchedRuntime])
-        
         })
     }
 
@@ -403,7 +408,6 @@ export async function reSearchMovieHandler(req, res) {
 
         return
     }
-
 
     for (var i = 0; i < rows.length; i++) {
         for (var j = 0; j < movies.length; j++) {

@@ -1,7 +1,6 @@
 import crypto from "crypto"
 
 import { getConnection } from "./DB.js"
-import { getLoggedAccount } from "./utils.js"
 import { encryptPassword } from "./utils.js"
 
 export async function loginHandler(req, res) {
@@ -24,9 +23,11 @@ export async function loginHandler(req, res) {
         return
     }
 
-    let token = crypto.createHash("sha256").update(rows[0].user_id + rows[0].user_pw + Math.random(999999).toString()).digest("hex")
+    let account = rows[0]
 
-    await connection.query("INSERT INTO `movie_tokens` (`id`, `token`) VALUES (?, ?)", [rows[0].id, token])
+    let token = crypto.createHash("sha256").update(account.user_id + account.user_pw + Math.random(999999).toString()).digest("hex")
+
+    await connection.query("INSERT INTO `movie_tokens` (`id`, `token`) VALUES (?, ?)", [account.id, token])
 
     res.send({
         token: token
@@ -67,51 +68,6 @@ export async function registerHandler(req, res) {
     
     await connection.query("INSERT INTO `movie_members` (`user_id`, `user_pw`, `name`, `gender`, `email`) VALUES (?, ?, ?, ?, ?)"
         , [fetchedID, cryptedPassword, fetchedName, fetchedGender, fetchedEmail])
-
-    res.send({
-        success: true
-    })
-}
-
-export async function meHandler(req, res) {
-    let connection = getConnection()
-    if (connection == null) {
-        res.status(500).send("DB not inited yet")
-        return
-    }
-
-    let account = await getLoggedAccount(req, res)
-    if (account == null) {
-        res.status(400).send("Not logged in")
-        return
-    }
-
-
-    res.send({
-        id: account.id,
-        user_id: account.user_id,
-        email: account.email,
-        gender: account.gender,
-        name: account.name,
-        registeredDate: account.registered_date,
-    })
-}
-
-export async function leaveHandler(req, res) {
-    let connection = getConnection()
-    if (connection == null) {
-        res.status(500).send("DB not inited yet")
-        return
-    }
-
-    let account = await getLoggedAccount(req, res)
-    if (account == null) {
-        res.status(400).send("Not logged in")
-        return
-    }
-
-    await connection.query("UPDATE `movie_members` SET `status`=1 WHERE `id`=?", [account.id])
-    await connection.query("DELETE FROM `movie_token` WHERE `id`=?", [account.id])
 
     res.send({
         success: true
