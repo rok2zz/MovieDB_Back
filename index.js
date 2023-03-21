@@ -2,37 +2,34 @@ import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
 
-import { getConnection, myapp } from "./DB.js"
+import { myapp } from "./service/database.js"
 
-import { registerHandler, loginHandler } from "./members.js"
+import { v1RegisterPOST, v1LoginPOST } from "./api/members.js"
 
-import { getMovieHandler, deleteReviewHandler, getMainHandler, getMoreMoviesHandler
-    , getRandomMovieHandler, getReviewHandler, reSearchMovieHandler, searchMovieHandler, writeReviewHandler } from "./movies.js"
+import { v1GetMovie, deleteReviewHandler, v1getMain, v1GetMoreMovies
+    , v1GetRandomMovieID, getReviewHandler, v1ReSearchMovieGet, v1SearchMovieGet, writeReviewHandler } from "./api/movies.js"
 
 const app = express()
 const port = 3000
 
 dotenv.config()
 
-var connection;
 app.use(express.json())
 app.use(cors())
 
 myapp();
 
-connection = getConnection
+app.post('/login', v1LoginPOST)
+app.post('/register', v1RegisterPOST)
 
-app.post('/login', loginHandler)
-app.post('/register', registerHandler)
+app.get('/main', v1getMain)
+app.get('/mainitems/:type/:page', v1GetMoreMovies)
 
-app.get('/main', getMainHandler)
-app.get('/mainitems/:type/:page', getMoreMoviesHandler)
+app.get('/search/:searchQuery', v1SearchMovieGet)
+app.get('/search/re/:searchQuery', v1ReSearchMovieGet)
 
-app.get('/search/:searchQuery', searchMovieHandler)
-app.get('/search/re/:searchQuery', reSearchMovieHandler)
-
-app.get('/movie/:id', getMovieHandler)
-app.get('/random', getRandomMovieHandler)
+app.get('/movie/:id', v1GetMovie)
+app.get('/random', v1GetRandomMovieID)
 
 app.get('/review/:id/:page', getReviewHandler)
 app.post('/review/write', writeReviewHandler)
